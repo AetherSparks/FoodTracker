@@ -22,26 +22,30 @@ export function FoodItemCard({
   const piecesPerUnit = sessionItem?.piecesPerUnit ?? defaultPiecesPerUnit;
 
   return (
-    <div className="flex items-center justify-between px-4 py-3">
-      <div className="flex flex-1 flex-col gap-1 pr-3">
-        <span className="text-sm font-medium leading-tight">{name}</span>
-        <span
-          className={`self-start rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-            category === "Non-Veg"
-              ? "bg-red-900/50 text-red-400"
-              : "bg-green-900/50 text-green-400"
-          }`}
-        >
-          {category}
-        </span>
+    <div className="rounded-xl border border-gray-800 bg-gray-900/50 px-4 py-3">
+      <div className="flex items-center justify-between">
+        <div className="flex flex-1 flex-col gap-1.5 pr-3">
+          <span className="text-sm font-medium leading-tight text-gray-100">
+            {name}
+          </span>
+          <span
+            className={`self-start rounded-md px-2 py-0.5 text-[10px] font-semibold ${
+              category === "Non-Veg"
+                ? "bg-rose-900/30 text-rose-400"
+                : "bg-emerald-900/30 text-emerald-400"
+            }`}
+          >
+            {category}
+          </span>
+        </div>
+        <Counter
+          units={units}
+          piecesPerUnit={piecesPerUnit}
+          onIncrement={() => increment(itemId, defaultPiecesPerUnit)}
+          onDecrement={() => decrement(itemId)}
+          onPiecesPerUnitChange={(v) => setPiecesPerUnit(itemId, v)}
+        />
       </div>
-      <Counter
-        units={units}
-        piecesPerUnit={piecesPerUnit}
-        onIncrement={() => increment(itemId, defaultPiecesPerUnit)}
-        onDecrement={() => decrement(itemId)}
-        onPiecesPerUnitChange={(v) => setPiecesPerUnit(itemId, v)}
-      />
     </div>
   );
 }

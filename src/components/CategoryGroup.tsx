@@ -10,15 +10,26 @@ interface CategoryGroupProps {
 
 export function CategoryGroup({ category, items }: CategoryGroupProps) {
   return (
-    <div className="mb-4">
-      <div className="sticky top-[57px] z-10 border-b border-gray-800 bg-gray-950/90 px-4 py-2 backdrop-blur">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-amber-400">
-          {category}
-        </h2>
+    <div>
+      <div className="sticky top-0 z-10 border-b border-gray-800 bg-gray-950 px-4 py-2.5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-amber-400">
+            {category}
+          </h2>
+          <span className="text-[11px] font-medium tabular-nums text-gray-500">
+            {items.length}
+          </span>
+        </div>
       </div>
-      <div className="divide-y divide-gray-800/50">
+      <div className="space-y-2 px-0.5 py-2">
         {items.map((item) => (
-          <FoodItemCard key={item.id} itemId={item.id} name={item.name} category={item.category} defaultPiecesPerUnit={item.defaultPiecesPerUnit} />
+          <FoodItemCard
+            key={item.id}
+            itemId={item.id}
+            name={item.name}
+            category={item.category}
+            defaultPiecesPerUnit={item.defaultPiecesPerUnit}
+          />
         ))}
       </div>
     </div>

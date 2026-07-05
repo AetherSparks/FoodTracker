@@ -16,42 +16,44 @@ export function Counter({
   onPiecesPerUnitChange,
 }: CounterProps) {
   return (
-    <div className="flex flex-col items-end gap-1">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col items-end gap-0.5">
+      <div className="flex items-center gap-1">
         <button
           onClick={onDecrement}
           disabled={units <= 0}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-800 text-lg font-bold text-white transition-transform active:scale-90 disabled:cursor-not-allowed disabled:opacity-30"
+          className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-800 text-base font-bold text-white transition-colors active:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-20"
           aria-label="Decrement"
         >
           −
         </button>
-        <span className="w-7 text-center font-mono text-lg tabular-nums">
+        <span className="flex w-8 items-center justify-center font-mono text-lg font-semibold tabular-nums text-white">
           {units}
         </span>
         <button
           onClick={onIncrement}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500 text-lg font-bold text-black transition-transform active:scale-90"
+          className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500 text-base font-bold text-black transition-colors active:bg-amber-400"
           aria-label="Increment"
         >
           +
         </button>
       </div>
-
-      <div className="flex items-center gap-1 text-xs text-gray-500">
-        <span className="tabular-nums">{piecesPerUnit}</span>
-        <span>p/u</span>
+      <div className="flex items-center gap-1 text-[11px] text-gray-500">
+        <span className="tabular-nums font-medium text-gray-400">
+          {units * piecesPerUnit}
+        </span>
+        <span>pcs</span>
+        <span className="text-gray-700">·</span>
         <input
           type="number"
           min={1}
           value={piecesPerUnit}
           onChange={(e) => {
             const v = parseInt(e.target.value, 10);
-            if (!isNaN(v)) onPiecesPerUnitChange(v);
+            if (!isNaN(v)) onPiecesPerUnitChange(Math.max(1, v));
           }}
-          className="w-10 rounded border border-gray-700 bg-gray-900 px-1 py-0.5 text-center text-xs tabular-nums outline-none focus:border-amber-500"
+          className="w-7 border-0 bg-transparent p-0 text-center text-[11px] tabular-nums text-gray-500 outline-none focus:text-amber-400"
         />
-        <span>= {units * piecesPerUnit} pcs</span>
+        <span>/u</span>
       </div>
     </div>
   );
