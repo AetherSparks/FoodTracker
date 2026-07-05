@@ -8,7 +8,7 @@ import { useSession } from "@/context/SessionContext";
 import { useAuth } from "@/context/AuthContext";
 
 export default function TrackPage() {
-  const { hasSession, loading, session } = useSession();
+  const { hasSession, loading, session, error } = useSession();
   const { user, signOut } = useAuth();
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -43,6 +43,12 @@ export default function TrackPage() {
           </div>
         )}
       </header>
+
+      {error && (
+        <div className="mx-4 mt-2 rounded-lg bg-red-900/50 px-4 py-3 text-sm text-red-300">
+          {error}
+        </div>
+      )}
 
       {!hasSession ? (
         <SessionStarter />

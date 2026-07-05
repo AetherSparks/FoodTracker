@@ -30,6 +30,8 @@ export function FoodCatalog({ refreshKey }: FoodCatalogProps) {
           items,
         }))
       );
+    } catch (err) {
+      console.error("Food catalog load error:", err);
     } finally {
       setLoading(false);
     }

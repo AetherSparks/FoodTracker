@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -25,5 +25,11 @@ const app =
     : getApps()[0];
 
 export const auth = hasConfig ? getAuth(app) : null;
-export const db = hasConfig ? getFirestore(app) : null;
+
+export const db = hasConfig
+  ? initializeFirestore(app, {
+      experimentalForceLongPolling: true,
+    })
+  : null;
+
 export const googleProvider = hasConfig ? new GoogleAuthProvider() : null;

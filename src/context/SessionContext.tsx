@@ -15,7 +15,6 @@ import {
   getTodaySession,
   createSession as createSessionDb,
   updateSessionItems,
-  sanitizeEmail,
 } from "@/lib/firestore";
 import type { FoodSession, SessionItem } from "@/lib/types";
 
@@ -23,6 +22,7 @@ interface SessionContextValue {
   session: FoodSession | null;
   items: Record<string, SessionItem>;
   loading: boolean;
+  error: string | null;
   hasSession: boolean;
   startNewSession: () => Promise<void>;
   increment: (itemId: string, defaultPiecesPerUnit: number) => void;
@@ -37,18 +37,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<FoodSession | null>(null);
   const [items, setItems] = useState<Record<string, SessionItem>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const date = getTodayDateString();
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const itemsRef = useRef(items);
   itemsRef.current = items;
 
-  const userEmail = user?.email ? sanitizeEmail(user.email) : null;
+  const uid = user?.uid ?? null;
 
   useEffect(() => {
-    if (!userEmail) return;
+    if (!uid) return;
     setLoading(true);
-    getTodaySession(userEmail, date)
+    setError(null);
+    getTodaySession(uid, date)
       .then((s) => {
         if (s) {
           setSession(s);
@@ -58,16 +60,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           setItems({});
         }
       })
+      .catch((err) => {
+        console.error("Session load error:", err);
+        setError("Could not connect to Firestore. Make sure the database is created in Firebase Console.");
+      })
       .finally(() => setLoading(false));
-  }, [userEmail, date]);
+  }, [uid, date]);
 
   const triggerSync = useCallback(() => {
-    if (!userEmail) return;
+    if (!uid) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      updateSessionItems(userEmail, date, itemsRef.current);
+      updateSessionItems(uid, date, itemsRef.current);
     }, 400);
-  }, [userEmail, date]);
+  }, [uid, date]);
 
   const increment = useCallback(
     (itemId: string, defaultPiecesPerUnit: number) => {
@@ -120,11 +126,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const startNewSession = useCallback(async () => {
-    if (!userEmail) return;
-    await createSessionDb(userEmail, date);
+    if (!uid) return;
+    await createSessionDb(uid, date);
     setSession({ date, items: {} });
     setItems({});
-  }, [userEmail, date]);
+  }, [uid, date]);
 
   return (
     <SessionContext.Provider
@@ -132,6 +138,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         session,
         items,
         loading,
+        error,
         hasSession: session !== null,
         startNewSession,
         increment,

@@ -16,8 +16,8 @@ function foodItemsRef() {
   return collection(db!, "companies", COMPANY_ID, "food_items");
 }
 
-function sessionRef(userEmail: string, date: string) {
-  return doc(db!, "companies", COMPANY_ID, "users", userEmail, "sessions", date);
+function sessionRef(uid: string, date: string) {
+  return doc(db!, "companies", COMPANY_ID, "users", uid, "sessions", date);
 }
 
 export function getTodayDateString(): string {
@@ -26,10 +26,6 @@ export function getTodayDateString(): string {
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-export function sanitizeEmail(email: string): string {
-  return email.toLowerCase().replace(/\./g, ",");
 }
 
 export async function fetchFoodItems(): Promise<FoodItem[]> {
@@ -42,11 +38,11 @@ export async function fetchFoodItems(): Promise<FoodItem[]> {
 }
 
 export async function getTodaySession(
-  userEmail: string,
+  uid: string,
   date: string
 ): Promise<FoodSession | null> {
   if (!db) return null;
-  const ref = sessionRef(userEmail, date);
+  const ref = sessionRef(uid, date);
   const snap = await getDoc(ref);
   if (!snap.exists()) return null;
   const data = snap.data() as FoodSession;
@@ -55,21 +51,21 @@ export async function getTodaySession(
 }
 
 export async function createSession(
-  userEmail: string,
+  uid: string,
   date: string
 ): Promise<void> {
   if (!db) return;
-  const ref = sessionRef(userEmail, date);
+  const ref = sessionRef(uid, date);
   await setDoc(ref, { date, items: {} });
 }
 
 export async function updateSessionItems(
-  userEmail: string,
+  uid: string,
   date: string,
   items: Record<string, SessionItem>
 ): Promise<void> {
   if (!db) return;
-  const ref = sessionRef(userEmail, date);
+  const ref = sessionRef(uid, date);
   await setDoc(ref, { items }, { merge: true });
 }
 
