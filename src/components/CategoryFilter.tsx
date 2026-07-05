@@ -1,32 +1,41 @@
 "use client";
 
-export type Filter = "all" | "Veg" | "Non-Veg";
+export type Filter = "all" | string;
 
 interface CategoryFilterProps {
   active: Filter;
   onChange: (filter: Filter) => void;
+  categories: string[];
 }
 
-const OPTIONS: { label: string; value: Filter }[] = [
-  { label: "All", value: "all" },
-  { label: "Veg", value: "Veg" },
-  { label: "Non-Veg", value: "Non-Veg" },
-];
-
-export function CategoryFilter({ active, onChange }: CategoryFilterProps) {
+export function CategoryFilter({
+  active,
+  onChange,
+  categories,
+}: CategoryFilterProps) {
   return (
-    <div className="flex gap-1.5">
-      {OPTIONS.map((opt) => (
+    <div className="flex gap-1.5 overflow-x-auto pb-1">
+      <button
+        onClick={() => onChange("all")}
+        className={`shrink-0 rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
+          active === "all"
+            ? "bg-amber-500 text-black"
+            : "bg-gray-900 text-gray-400"
+        }`}
+      >
+        All
+      </button>
+      {categories.map((cat) => (
         <button
-          key={opt.value}
-          onClick={() => onChange(opt.value)}
-          className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
-            active === opt.value
+          key={cat}
+          onClick={() => onChange(cat)}
+          className={`shrink-0 rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
+            active === cat
               ? "bg-amber-500 text-black"
               : "bg-gray-900 text-gray-400"
           }`}
         >
-          {opt.label}
+          {cat}
         </button>
       ))}
     </div>

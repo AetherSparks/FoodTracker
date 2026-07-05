@@ -1,36 +1,81 @@
 import { db } from "./firebase";
-import { collection, getDocs, addDoc } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  deleteDoc,
+  updateDoc,
+} from "firebase/firestore";
 import { COMPANY_ID } from "./constants";
+import type { UnitType } from "./types";
 
-const SEED_ITEMS = [
-  { name: "Hariyali Chicken Tikka", category: "Non-Veg", defaultPiecesPerUnit: 3 },
-  { name: "Angara Malai Tangdi", category: "Non-Veg", defaultPiecesPerUnit: 1 },
-  { name: "Chicken Seekh Kebab", category: "Non-Veg", defaultPiecesPerUnit: 1 },
-  { name: "Mustard Kasundi Fish Tikka", category: "Non-Veg", defaultPiecesPerUnit: 2 },
-  { name: "Chilli Garlic Prawns", category: "Non-Veg", defaultPiecesPerUnit: 3 },
-  { name: "Chicken wings", category: "Non-Veg", defaultPiecesPerUnit: 1 },
-  { name: "Octopus and squid bowl", category: "Non-Veg", defaultPiecesPerUnit: 1 },
-  { name: "Cake", category: "Non-Veg", defaultPiecesPerUnit: 1 },
-  { name: "Lebanese Mushroom Tikka", category: "Veg", defaultPiecesPerUnit: 3 },
-  { name: "Tandoori Grill Veg", category: "Veg", defaultPiecesPerUnit: 1 },
-  { name: "Achari Paneer Tikka", category: "Veg", defaultPiecesPerUnit: 1 },
-  { name: "Corn Mutter Ki Tikki", category: "Veg", defaultPiecesPerUnit: 1 },
-  { name: "Afghani Soya Chaap", category: "Veg", defaultPiecesPerUnit: 2 },
-  { name: "Malai Chaap", category: "Veg", defaultPiecesPerUnit: 1 },
-  { name: "American Cheesy Potato", category: "Veg", defaultPiecesPerUnit: 1 },
-  { name: "Crispy Corn", category: "Veg", defaultPiecesPerUnit: 1 },
-  { name: "Churrasco Pineapple", category: "Veg", defaultPiecesPerUnit: 3 },
-  { name: "Golgappe", category: "Veg", defaultPiecesPerUnit: 1 },
-  { name: "Papdi chaat", category: "Veg", defaultPiecesPerUnit: 1 },
-  { name: "Aaloo tikki", category: "Veg", defaultPiecesPerUnit: 1 },
-] as const;
+interface SeedItem {
+  name: string;
+  category: string;
+  defaultPiecesPerUnit: number;
+  unitType: UnitType;
+}
+
+const SEED_ITEMS: SeedItem[] = [
+  { name: "Hariyali Chicken Tikka", category: "Chicken", defaultPiecesPerUnit: 3, unitType: "stick" },
+  { name: "Angara Malai Tangdi", category: "Chicken", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "Chicken Seekh Kebab", category: "Chicken", defaultPiecesPerUnit: 1, unitType: "skewer" },
+  { name: "Chicken wings", category: "Chicken", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "Mustard Kasundi Fish Tikka", category: "Seafood", defaultPiecesPerUnit: 2, unitType: "stick" },
+  { name: "Chilli Garlic Prawns", category: "Seafood", defaultPiecesPerUnit: 3, unitType: "stick" },
+  { name: "Octopus and squid bowl", category: "Seafood", defaultPiecesPerUnit: 1, unitType: "bowl" },
+  { name: "Lebanese Mushroom Tikka", category: "Veg Grill", defaultPiecesPerUnit: 3, unitType: "stick" },
+  { name: "Tandoori Grill Veg", category: "Veg Grill", defaultPiecesPerUnit: 1, unitType: "plate" },
+  { name: "Achari Paneer Tikka", category: "Veg Grill", defaultPiecesPerUnit: 1, unitType: "stick" },
+  { name: "Afghani Soya Chaap", category: "Veg Grill", defaultPiecesPerUnit: 2, unitType: "stick" },
+  { name: "Malai Chaap", category: "Veg Grill", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "Churrasco Pineapple", category: "Veg Grill", defaultPiecesPerUnit: 3, unitType: "stick" },
+  { name: "Corn Mutter Ki Tikki", category: "Veg Starters", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "American Cheesy Potato", category: "Veg Starters", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "Crispy Corn", category: "Veg Starters", defaultPiecesPerUnit: 1, unitType: "scoop" },
+  { name: "Golgappe", category: "Chaat", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "Papdi chaat", category: "Chaat", defaultPiecesPerUnit: 1, unitType: "bowl" },
+  { name: "Aaloo tikki", category: "Chaat", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "Cake", category: "Desserts", defaultPiecesPerUnit: 1, unitType: "piece" },
+];
 
 export async function seedFoodItems(): Promise<void> {
   if (!db) return;
   const ref = collection(db, "companies", COMPANY_ID, "food_items");
   const snap = await getDocs(ref);
-  if (!snap.empty) return;
 
-  const writes = SEED_ITEMS.map((item) => addDoc(ref, { ...item }));
-  await Promise.all(writes);
+  if (snap.empty) {
+    const writes = SEED_ITEMS.map((item) => addDoc(ref, { ...item }));
+    await Promise.all(writes);
+    return;
+  }
+
+  // Deduplicate + upgrade existing items with new fields
+  const seedNames = new Map<string, SeedItem>();
+  SEED_ITEMS.forEach((item) => seedNames.set(item.name.toLowerCase(), item));
+
+  const seen = new Set<string>();
+  const batch: Promise<void>[] = [];
+
+  snap.forEach((docSnap) => {
+    const data = docSnap.data();
+    const name = (data.name ?? "").toLowerCase();
+    if (!seedNames.has(name)) return;
+
+    if (seen.has(name)) {
+      batch.push(deleteDoc(docSnap.ref));
+    } else {
+      seen.add(name);
+      const seed = seedNames.get(name)!;
+      batch.push(
+        updateDoc(docSnap.ref, {
+          category: seed.category,
+          defaultPiecesPerUnit: seed.defaultPiecesPerUnit,
+          unitType: seed.unitType,
+        })
+      );
+    }
+  });
+
+  await Promise.all(batch);
 }

@@ -29,6 +29,7 @@ export function CategoryGroup({ category, items }: CategoryGroupProps) {
             name={item.name}
             category={item.category}
             defaultPiecesPerUnit={item.defaultPiecesPerUnit}
+            unitType={item.unitType}
           />
         ))}
       </div>

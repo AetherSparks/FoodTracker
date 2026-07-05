@@ -8,36 +8,46 @@ import { SessionSummary } from "@/components/SessionSummary";
 import { CategoryFilter, type Filter } from "@/components/CategoryFilter";
 import { SearchBar } from "@/components/SearchBar";
 import { FoodCatalog } from "@/components/FoodCatalog";
-import { AddMissingItemForm } from "@/components/AddMissingItemForm";
+import { SessionNotes } from "@/components/SessionNotes";
 import { SessionStarter } from "@/components/SessionStarter";
 import type { FoodItem, CategoryGroup as CategoryGroupType } from "@/lib/types";
 
 export default function TrackPage() {
   const { hasSession, loading: sessionLoading, session, error, items: sessionItems } = useSession();
   const { user, signOut } = useAuth();
-  const { items: foodItems, loading: catalogLoading, refresh: refreshFoodItems } = useFoodItems();
+  const { items: foodItems, loading: catalogLoading } = useFoodItems();
 
   const [filter, setFilter] = useState<Filter>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
+  const allCategories = useMemo(() => {
+    return [...new Set(foodItems.map((f) => f.category))].sort();
+  }, [foodItems]);
+
+  const topCategories = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const foodMap = new Map(foodItems.map((f) => [f.id, f]));
+    for (const [itemId, si] of Object.entries(sessionItems)) {
+      const food = foodMap.get(itemId);
+      if (food) {
+        counts[food.category] = (counts[food.category] ?? 0) + si.units;
+      }
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([name, units]) => ({ name, units }));
+  }, [sessionItems, foodItems]);
+
   const stats = useMemo(() => {
     let totalUnits = 0;
     let totalPieces = 0;
-    let vegUnits = 0;
-    let nonVegUnits = 0;
-
-    const foodMap = new Map(foodItems.map((fi) => [fi.id, fi]));
-
-    for (const [itemId, si] of Object.entries(sessionItems)) {
+    for (const si of Object.values(sessionItems)) {
       totalUnits += si.units;
       totalPieces += si.units * si.piecesPerUnit;
-      const food = foodMap.get(itemId);
-      if (food?.category === "Veg") vegUnits += si.units;
-      else nonVegUnits += si.units;
     }
-
-    return { totalUnits, totalPieces, vegUnits, nonVegUnits };
-  }, [sessionItems, foodItems]);
+    return { totalUnits, totalPieces };
+  }, [sessionItems]);
 
   const filteredGroups: CategoryGroupType[] = useMemo(() => {
     let result: FoodItem[] = foodItems;
@@ -78,7 +88,6 @@ export default function TrackPage() {
 
   return (
     <div className="flex h-screen flex-col bg-gray-950">
-      {/* HEADER */}
       <header className="sticky top-0 z-30 border-b border-gray-900 bg-gray-950/95 backdrop-blur-md">
         <div className="flex items-center justify-between px-4 py-3">
           <h1 className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-xl font-black uppercase tracking-tight text-transparent">
@@ -111,8 +120,7 @@ export default function TrackPage() {
         )}
       </header>
 
-      {/* SCROLLABLE CONTENT */}
-      <main className="flex-1 overflow-y-auto px-4 pb-36">
+      <main className="flex-1 overflow-y-auto px-4 pb-6">
         {error && (
           <div className="mb-4 mt-4 animate-fade-in rounded-xl border border-red-500/20 bg-red-950/40 p-4 text-sm text-red-400 backdrop-blur-sm">
             <p className="font-medium">{error}</p>
@@ -125,22 +133,23 @@ export default function TrackPage() {
           </div>
         ) : (
           <div className="space-y-4 py-4">
-            <SessionSummary stats={stats} />
+            <SessionSummary stats={stats} topCategories={topCategories} />
 
             <div className="space-y-3">
-              <CategoryFilter active={filter} onChange={setFilter} />
+              <CategoryFilter
+                active={filter}
+                onChange={setFilter}
+                categories={allCategories}
+              />
               <SearchBar value={searchQuery} onChange={setSearchQuery} />
             </div>
 
             <FoodCatalog groups={filteredGroups} />
+
+            <SessionNotes />
           </div>
         )}
       </main>
-
-      {/* BOTTOM ADD FORM */}
-      {hasSession && (
-        <AddMissingItemForm onAdded={() => refreshFoodItems()} />
-      )}
     </div>
   );
 }

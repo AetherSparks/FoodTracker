@@ -9,8 +9,7 @@ import {
 } from "react";
 import { auth, googleProvider } from "@/lib/firebase";
 import {
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   type User,
@@ -34,11 +33,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-
-    getRedirectResult(auth).catch(() => {
-      // ignore redirect result errors (e.g. user closed the flow)
-    });
-
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
@@ -48,7 +42,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async () => {
     if (!auth || !googleProvider) return;
-    await signInWithRedirect(auth, googleProvider);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error("Sign-in error:", err.message);
+      }
+    }
   };
 
   const signOut = async () => {

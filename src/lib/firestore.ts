@@ -5,7 +5,6 @@ import {
   getDocs,
   getDoc,
   setDoc,
-  addDoc,
   query,
   orderBy,
 } from "firebase/firestore";
@@ -17,7 +16,15 @@ function foodItemsRef() {
 }
 
 function sessionRef(uid: string, date: string) {
-  return doc(db!, "companies", COMPANY_ID, "users", uid, "sessions", date);
+  return doc(
+    db!,
+    "companies",
+    COMPANY_ID,
+    "users",
+    uid,
+    "sessions",
+    date
+  );
 }
 
 export function getTodayDateString(): string {
@@ -69,11 +76,12 @@ export async function updateSessionItems(
   await setDoc(ref, { items }, { merge: true });
 }
 
-export async function addFoodItem(
-  name: string,
-  category: string,
-  defaultPiecesPerUnit: number
+export async function updateSessionNotes(
+  uid: string,
+  date: string,
+  notes: string
 ): Promise<void> {
   if (!db) return;
-  await addDoc(foodItemsRef(), { name, category, defaultPiecesPerUnit });
+  const ref = sessionRef(uid, date);
+  await setDoc(ref, { notes }, { merge: true });
 }

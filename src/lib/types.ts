@@ -1,8 +1,11 @@
+export type UnitType = "stick" | "piece" | "scoop" | "bowl" | "plate" | "skewer";
+
 export interface FoodItem {
   id: string;
   name: string;
-  category: "Veg" | "Non-Veg";
+  category: string;
   defaultPiecesPerUnit: number;
+  unitType: UnitType;
 }
 
 export interface SessionItem {
@@ -13,6 +16,7 @@ export interface SessionItem {
 export interface FoodSession {
   date: string;
   items: Record<string, SessionItem>;
+  notes?: string;
 }
 
 export interface CategoryGroup {

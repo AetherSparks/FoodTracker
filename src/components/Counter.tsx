@@ -1,8 +1,20 @@
 "use client";
 
+import type { UnitType } from "@/lib/types";
+
+const UNIT_LABELS: Record<UnitType, string> = {
+  stick: "sticks",
+  piece: "pieces",
+  scoop: "scoops",
+  bowl: "bowls",
+  plate: "plates",
+  skewer: "skewers",
+};
+
 interface CounterProps {
   units: number;
   piecesPerUnit: number;
+  unitType: UnitType;
   onIncrement: () => void;
   onDecrement: () => void;
   onPiecesPerUnitChange: (value: number) => void;
@@ -11,10 +23,13 @@ interface CounterProps {
 export function Counter({
   units,
   piecesPerUnit,
+  unitType,
   onIncrement,
   onDecrement,
   onPiecesPerUnitChange,
 }: CounterProps) {
+  const unitLabel = UNIT_LABELS[unitType];
+
   return (
     <div className="flex flex-col items-end gap-0.5">
       <div className="flex items-center gap-1">
@@ -53,8 +68,9 @@ export function Counter({
           }}
           className="w-7 border-0 bg-transparent p-0 text-center text-[11px] tabular-nums text-gray-500 outline-none focus:text-amber-400"
         />
-        <span>/u</span>
+        <span>/{unitType}</span>
       </div>
+      <span className="text-[10px] text-gray-600">{unitLabel}</span>
     </div>
   );
 }
