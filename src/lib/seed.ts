@@ -17,6 +17,18 @@ interface SeedItem {
 }
 
 const SEED_ITEMS: SeedItem[] = [
+  { name: "Golgappe", category: "Chaat", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "Papdi chaat", category: "Chaat", defaultPiecesPerUnit: 1, unitType: "bowl" },
+  { name: "Aaloo tikki", category: "Chaat", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "Corn Mutter Ki Tikki", category: "Veg Starters", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "American Cheesy Potato", category: "Veg Starters", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "Crispy Corn", category: "Veg Starters", defaultPiecesPerUnit: 1, unitType: "scoop" },
+  { name: "Lebanese Mushroom Tikka", category: "Veg Grill", defaultPiecesPerUnit: 3, unitType: "stick" },
+  { name: "Tandoori Grill Veg", category: "Veg Grill", defaultPiecesPerUnit: 1, unitType: "plate" },
+  { name: "Achari Paneer Tikka", category: "Veg Grill", defaultPiecesPerUnit: 1, unitType: "stick" },
+  { name: "Afghani Soya Chaap", category: "Veg Grill", defaultPiecesPerUnit: 2, unitType: "stick" },
+  { name: "Malai Chaap", category: "Veg Grill", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "Churrasco Pineapple", category: "Veg Grill", defaultPiecesPerUnit: 3, unitType: "stick" },
   { name: "Hariyali Chicken Tikka", category: "Chicken", defaultPiecesPerUnit: 3, unitType: "stick" },
   { name: "Angara Malai Tangdi", category: "Chicken", defaultPiecesPerUnit: 1, unitType: "piece" },
   { name: "Chicken Seekh Kebab", category: "Chicken", defaultPiecesPerUnit: 1, unitType: "skewer" },
@@ -24,19 +36,14 @@ const SEED_ITEMS: SeedItem[] = [
   { name: "Mustard Kasundi Fish Tikka", category: "Seafood", defaultPiecesPerUnit: 2, unitType: "stick" },
   { name: "Chilli Garlic Prawns", category: "Seafood", defaultPiecesPerUnit: 3, unitType: "stick" },
   { name: "Octopus and squid bowl", category: "Seafood", defaultPiecesPerUnit: 1, unitType: "bowl" },
-  { name: "Lebanese Mushroom Tikka", category: "Veg Grill", defaultPiecesPerUnit: 3, unitType: "stick" },
-  { name: "Tandoori Grill Veg", category: "Veg Grill", defaultPiecesPerUnit: 1, unitType: "plate" },
-  { name: "Achari Paneer Tikka", category: "Veg Grill", defaultPiecesPerUnit: 1, unitType: "stick" },
-  { name: "Afghani Soya Chaap", category: "Veg Grill", defaultPiecesPerUnit: 2, unitType: "stick" },
-  { name: "Malai Chaap", category: "Veg Grill", defaultPiecesPerUnit: 1, unitType: "piece" },
-  { name: "Churrasco Pineapple", category: "Veg Grill", defaultPiecesPerUnit: 3, unitType: "stick" },
-  { name: "Corn Mutter Ki Tikki", category: "Veg Starters", defaultPiecesPerUnit: 1, unitType: "piece" },
-  { name: "American Cheesy Potato", category: "Veg Starters", defaultPiecesPerUnit: 1, unitType: "piece" },
-  { name: "Crispy Corn", category: "Veg Starters", defaultPiecesPerUnit: 1, unitType: "scoop" },
-  { name: "Golgappe", category: "Chaat", defaultPiecesPerUnit: 1, unitType: "piece" },
-  { name: "Papdi chaat", category: "Chaat", defaultPiecesPerUnit: 1, unitType: "bowl" },
-  { name: "Aaloo tikki", category: "Chaat", defaultPiecesPerUnit: 1, unitType: "piece" },
   { name: "Cake", category: "Desserts", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "Pastry", category: "Desserts", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "Ice Cream", category: "Desserts", defaultPiecesPerUnit: 1, unitType: "scoop" },
+  { name: "Jalebi", category: "Desserts", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "Gulab Jamun", category: "Desserts", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "Halwa", category: "Desserts", defaultPiecesPerUnit: 1, unitType: "scoop" },
+  { name: "Brownie", category: "Desserts", defaultPiecesPerUnit: 1, unitType: "piece" },
+  { name: "Custard", category: "Desserts", defaultPiecesPerUnit: 1, unitType: "scoop" },
 ];
 
 export async function seedFoodItems(): Promise<void> {
@@ -78,4 +85,19 @@ export async function seedFoodItems(): Promise<void> {
   });
 
   await Promise.all(batch);
+
+  // Create any seed items that don't exist yet
+  const existingNames = new Set<string>();
+  snap.forEach((docSnap) => {
+    const data = docSnap.data();
+    existingNames.add((data.name ?? "").toLowerCase());
+  });
+
+  const creates: Promise<void>[] = [];
+  for (const item of SEED_ITEMS) {
+    if (!existingNames.has(item.name.toLowerCase())) {
+      creates.push(addDoc(ref, { ...item }) as unknown as Promise<void>);
+    }
+  }
+  await Promise.all(creates);
 }

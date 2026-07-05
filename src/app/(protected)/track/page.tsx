@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "@/context/SessionContext";
 import { useAuth } from "@/context/AuthContext";
 import { useFoodItems } from "@/hooks/useFoodItems";
+import { CATEGORY_ORDER } from "@/lib/constants";
 import { SessionSummary } from "@/components/SessionSummary";
 import { CategoryFilter, type Filter } from "@/components/CategoryFilter";
 import { SearchBar } from "@/components/SearchBar";
@@ -41,7 +42,9 @@ function TrackPageContent() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const allCategories = useMemo(() => {
-    return [...new Set(foodItems.map((f) => f.category))].sort();
+    return [...new Set(foodItems.map((f) => f.category))].sort(
+      (a, b) => CATEGORY_ORDER.indexOf(a) - CATEGORY_ORDER.indexOf(b)
+    );
   }, [foodItems]);
 
   const topCategories = useMemo(() => {
@@ -87,10 +90,13 @@ function TrackPageContent() {
       return acc;
     }, {});
 
-    return Object.entries(grouped).map(([category, items]) => ({
-      category,
-      items,
-    }));
+    return Object.entries(grouped)
+      .map(([category, items]) => ({ category, items }))
+      .sort(
+        (a, b) =>
+          CATEGORY_ORDER.indexOf(a.category) -
+          CATEGORY_ORDER.indexOf(b.category)
+      );
   }, [foodItems, filter, searchQuery]);
 
   const loading = sessionLoading || catalogLoading;

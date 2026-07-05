@@ -66,10 +66,9 @@ src/
 │   ├── AuthContext.tsx                  # onAuthStateChanged, signInWithPopup, signOut
 │   └── SessionContext.tsx               # Session loading by date, optimistic counts, debounced sync (400ms)
 ├── hooks/
-│   ├── useDebounce.ts                   # Generic debounce (available but not currently used)
 │   └── useFoodItems.ts                  # Fetch + seed catalog
 └── lib/
-    ├── constants.ts                     # COMPANY_ID = "absolute-barbecue"
+    ├── constants.ts                     # COMPANY_ID, CATEGORY_ORDER (custom section order)
     ├── firebase.ts                      # Firebase init (long-polling enabled for Chrome)
     ├── firestore.ts                     # All Firestore CRUD helpers
     ├── seed.ts                          # Seeds 20 menu items, deduplicates, upgrades old fields
@@ -163,15 +162,28 @@ src/
 | Unit type | `unitType` field on FoodItem | Describes serving method: stick, scoop, bowl, plate, etc. |
 | Categories | Dynamic strings (not enum) | Flexible for new menu sections without code changes |
 | Category filter | Dynamic pills from catalog | Always stays in sync with actual data |
+| Category order | `CATEGORY_ORDER` constant | Custom display order: Chaat → Veg Starters → Veg Grill → Chicken → Seafood → Desserts |
 | User additions | Replaced by session notes | Prevents catalog pollution; notes are personal |
 | Notes persistence | Debounced to session doc | Same session document, merged silently |
 | Duplicate cleanup | Seed function deduplicates by name | Keeps Firestore clean when schema evolves |
 | State management | In TrackPage (filter, search) | Lifted from children → clean, testable, no deep prop drilling |
 
-## Seed Data (20 Items)
+## Seed Data (27 Items)
 
 | Item | Category | unitType | defaultPPU |
 |---|---|---|---|
+| Golgappe | Chaat | piece | 1 |
+| Papdi chaat | Chaat | bowl | 1 |
+| Aaloo tikki | Chaat | piece | 1 |
+| Corn Mutter Ki Tikki | Veg Starters | piece | 1 |
+| American Cheesy Potato | Veg Starters | piece | 1 |
+| Crispy Corn | Veg Starters | scoop | 1 |
+| Lebanese Mushroom Tikka | Veg Grill | stick | 3 |
+| Tandoori Grill Veg | Veg Grill | plate | 1 |
+| Achari Paneer Tikka | Veg Grill | stick | 1 |
+| Afghani Soya Chaap | Veg Grill | stick | 2 |
+| Malai Chaap | Veg Grill | piece | 1 |
+| Churrasco Pineapple | Veg Grill | stick | 3 |
 | Hariyali Chicken Tikka | Chicken | stick | 3 |
 | Angara Malai Tangdi | Chicken | piece | 1 |
 | Chicken Seekh Kebab | Chicken | skewer | 1 |
@@ -179,19 +191,14 @@ src/
 | Mustard Kasundi Fish Tikka | Seafood | stick | 2 |
 | Chilli Garlic Prawns | Seafood | stick | 3 |
 | Octopus and squid bowl | Seafood | bowl | 1 |
-| Lebanese Mushroom Tikka | Veg Grill | stick | 3 |
-| Tandoori Grill Veg | Veg Grill | plate | 1 |
-| Achari Paneer Tikka | Veg Grill | stick | 1 |
-| Afghani Soya Chaap | Veg Grill | stick | 2 |
-| Malai Chaap | Veg Grill | piece | 1 |
-| Churrasco Pineapple | Veg Grill | stick | 3 |
-| Corn Mutter Ki Tikki | Veg Starters | piece | 1 |
-| American Cheesy Potato | Veg Starters | piece | 1 |
-| Crispy Corn | Veg Starters | scoop | 1 |
-| Golgappe | Chaat | piece | 1 |
-| Papdi chaat | Chaat | bowl | 1 |
-| Aaloo tikki | Chaat | piece | 1 |
 | Cake | Desserts | piece | 1 |
+| Pastry | Desserts | piece | 1 |
+| Ice Cream | Desserts | scoop | 1 |
+| Jalebi | Desserts | piece | 1 |
+| Gulab Jamun | Desserts | piece | 1 |
+| Halwa | Desserts | scoop | 1 |
+| Brownie | Desserts | piece | 1 |
+| Custard | Desserts | scoop | 1 |
 
 ## Security Rules (Firestore)
 
