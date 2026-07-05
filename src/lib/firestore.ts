@@ -9,7 +9,16 @@ import {
   query,
   orderBy,
 } from "firebase/firestore";
-import type { FoodItem, FoodSession } from "./types";
+import { COMPANY_ID } from "./constants";
+import type { FoodItem, FoodSession, SessionItem } from "./types";
+
+function foodItemsRef() {
+  return collection(db!, "companies", COMPANY_ID, "food_items");
+}
+
+function sessionRef(userEmail: string, date: string) {
+  return doc(db!, "companies", COMPANY_ID, "users", userEmail, "sessions", date);
+}
 
 export function getTodayDateString(): string {
   const d = new Date();
@@ -25,7 +34,7 @@ export function sanitizeEmail(email: string): string {
 
 export async function fetchFoodItems(): Promise<FoodItem[]> {
   if (!db) return [];
-  const q = query(collection(db, "food_items"), orderBy("category", "asc"));
+  const q = query(foodItemsRef(), orderBy("category", "asc"));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(
     (doc) => ({ id: doc.id, ...doc.data() }) as FoodItem
@@ -37,7 +46,7 @@ export async function getTodaySession(
   date: string
 ): Promise<FoodSession | null> {
   if (!db) return null;
-  const ref = doc(db, "users", userEmail, "sessions", date);
+  const ref = sessionRef(userEmail, date);
   const snap = await getDoc(ref);
   if (!snap.exists()) return null;
   const data = snap.data() as FoodSession;
@@ -50,24 +59,25 @@ export async function createSession(
   date: string
 ): Promise<void> {
   if (!db) return;
-  const ref = doc(db, "users", userEmail, "sessions", date);
+  const ref = sessionRef(userEmail, date);
   await setDoc(ref, { date, items: {} });
 }
 
 export async function updateSessionItems(
   userEmail: string,
   date: string,
-  items: Record<string, number>
+  items: Record<string, SessionItem>
 ): Promise<void> {
   if (!db) return;
-  const ref = doc(db, "users", userEmail, "sessions", date);
+  const ref = sessionRef(userEmail, date);
   await setDoc(ref, { items }, { merge: true });
 }
 
 export async function addFoodItem(
   name: string,
-  category: string
+  category: string,
+  defaultPiecesPerUnit: number
 ): Promise<void> {
   if (!db) return;
-  await addDoc(collection(db, "food_items"), { name, category });
+  await addDoc(foodItemsRef(), { name, category, defaultPiecesPerUnit });
 }

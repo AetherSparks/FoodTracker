@@ -18,7 +18,7 @@ export function CategoryGroup({ category, items }: CategoryGroupProps) {
       </div>
       <div className="divide-y divide-gray-800/50">
         {items.map((item) => (
-          <FoodItemCard key={item.id} itemId={item.id} name={item.name} />
+          <FoodItemCard key={item.id} itemId={item.id} name={item.name} category={item.category} defaultPiecesPerUnit={item.defaultPiecesPerUnit} />
         ))}
       </div>
     </div>

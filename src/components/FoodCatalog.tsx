@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { fetchFoodItems } from "@/lib/firestore";
+import { seedFoodItems } from "@/lib/seed";
 import { CategoryGroup } from "./CategoryGroup";
 import type { FoodItem, CategoryGroup as CategoryGroupType } from "@/lib/types";
 
@@ -16,6 +17,7 @@ export function FoodCatalog({ refreshKey }: FoodCatalogProps) {
   const loadItems = useCallback(async () => {
     setLoading(true);
     try {
+      await seedFoodItems();
       const items = await fetchFoodItems();
       const grouped = items.reduce<Record<string, FoodItem[]>>((acc, item) => {
         if (!acc[item.category]) acc[item.category] = [];

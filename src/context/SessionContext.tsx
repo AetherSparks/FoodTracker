@@ -17,16 +17,17 @@ import {
   updateSessionItems,
   sanitizeEmail,
 } from "@/lib/firestore";
-import type { FoodSession } from "@/lib/types";
+import type { FoodSession, SessionItem } from "@/lib/types";
 
 interface SessionContextValue {
   session: FoodSession | null;
-  items: Record<string, number>;
+  items: Record<string, SessionItem>;
   loading: boolean;
   hasSession: boolean;
   startNewSession: () => Promise<void>;
-  increment: (itemId: string) => void;
+  increment: (itemId: string, defaultPiecesPerUnit: number) => void;
   decrement: (itemId: string) => void;
+  setPiecesPerUnit: (itemId: string, value: number) => void;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -34,7 +35,7 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [session, setSession] = useState<FoodSession | null>(null);
-  const [items, setItems] = useState<Record<string, number>>({});
+  const [items, setItems] = useState<Record<string, SessionItem>>({});
   const [loading, setLoading] = useState(true);
 
   const date = getTodayDateString();
@@ -69,8 +70,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [userEmail, date]);
 
   const increment = useCallback(
-    (itemId: string) => {
-      setItems((prev) => ({ ...prev, [itemId]: (prev[itemId] ?? 0) + 1 }));
+    (itemId: string, defaultPiecesPerUnit: number) => {
+      setItems((prev) => {
+        const current = prev[itemId];
+        if (!current) {
+          return {
+            ...prev,
+            [itemId]: { units: 1, piecesPerUnit: defaultPiecesPerUnit },
+          };
+        }
+        return {
+          ...prev,
+          [itemId]: { ...current, units: current.units + 1 },
+        };
+      });
       triggerSync();
     },
     [triggerSync]
@@ -79,9 +92,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const decrement = useCallback(
     (itemId: string) => {
       setItems((prev) => {
-        const current = prev[itemId] ?? 0;
-        if (current <= 0) return prev;
-        return { ...prev, [itemId]: current - 1 };
+        const current = prev[itemId];
+        if (!current || current.units <= 0) return prev;
+        return {
+          ...prev,
+          [itemId]: { ...current, units: current.units - 1 },
+        };
+      });
+      triggerSync();
+    },
+    [triggerSync]
+  );
+
+  const setPiecesPerUnit = useCallback(
+    (itemId: string, value: number) => {
+      if (value < 1) return;
+      setItems((prev) => {
+        const current = prev[itemId] ?? { units: 0, piecesPerUnit: 1 };
+        return {
+          ...prev,
+          [itemId]: { ...current, piecesPerUnit: value },
+        };
       });
       triggerSync();
     },
@@ -105,6 +136,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         startNewSession,
         increment,
         decrement,
+        setPiecesPerUnit,
       }}
     >
       {children}
