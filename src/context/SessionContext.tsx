@@ -4,15 +4,13 @@ import {
   createContext,
   useContext,
   useState,
-  useEffect,
   useRef,
   useCallback,
   type ReactNode,
 } from "react";
 import { useAuth } from "./AuthContext";
 import {
-  getTodayDateString,
-  getTodaySession,
+  getSession,
   createSession as createSessionDb,
   updateSessionItems,
 } from "@/lib/firestore";
@@ -23,8 +21,9 @@ interface SessionContextValue {
   items: Record<string, SessionItem>;
   loading: boolean;
   error: string | null;
-  hasSession: boolean;
-  startNewSession: () => Promise<void>;
+  activeDate: string | null;
+  loadSession: (date: string) => Promise<void>;
+  startNewSession: (date: string) => Promise<void>;
   increment: (itemId: string, defaultPiecesPerUnit: number) => void;
   decrement: (itemId: string) => void;
   setPiecesPerUnit: (itemId: string, value: number) => void;
@@ -36,44 +35,66 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [session, setSession] = useState<FoodSession | null>(null);
   const [items, setItems] = useState<Record<string, SessionItem>>({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeDate, setActiveDate] = useState<string | null>(null);
 
-  const date = getTodayDateString();
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const itemsRef = useRef(items);
   itemsRef.current = items;
 
   const uid = user?.uid ?? null;
 
-  useEffect(() => {
-    if (!uid) return;
-    setLoading(true);
-    setError(null);
-    getTodaySession(uid, date)
-      .then((s) => {
+  const triggerSync = useCallback(() => {
+    if (!uid || !activeDate) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      updateSessionItems(uid, activeDate, itemsRef.current);
+    }, 400);
+  }, [uid, activeDate]);
+
+  const loadSession = useCallback(
+    async (date: string) => {
+      if (!uid) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const s = await getSession(uid, date);
         if (s) {
           setSession(s);
           setItems(s.items ?? {});
+          setActiveDate(date);
         } else {
           setSession(null);
           setItems({});
+          setActiveDate(null);
+          setError("No session found for this date");
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error("Session load error:", err);
-        setError("Could not connect to Firestore. Make sure the database is created in Firebase Console.");
-      })
-      .finally(() => setLoading(false));
-  }, [uid, date]);
+        setError(
+          "Could not connect to Firestore. Make sure the database is created in Firebase Console."
+        );
+        setSession(null);
+        setItems({});
+        setActiveDate(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [uid]
+  );
 
-  const triggerSync = useCallback(() => {
-    if (!uid) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      updateSessionItems(uid, date, itemsRef.current);
-    }, 400);
-  }, [uid, date]);
+  const startNewSession = useCallback(
+    async (date: string) => {
+      if (!uid) return;
+      await createSessionDb(uid, date);
+      setSession({ date, items: {} });
+      setItems({});
+      setActiveDate(date);
+    },
+    [uid]
+  );
 
   const increment = useCallback(
     (itemId: string, defaultPiecesPerUnit: number) => {
@@ -125,13 +146,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [triggerSync]
   );
 
-  const startNewSession = useCallback(async () => {
-    if (!uid) return;
-    await createSessionDb(uid, date);
-    setSession({ date, items: {} });
-    setItems({});
-  }, [uid, date]);
-
   return (
     <SessionContext.Provider
       value={{
@@ -139,7 +153,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         items,
         loading,
         error,
-        hasSession: session !== null,
+        activeDate,
+        loadSession,
         startNewSession,
         increment,
         decrement,

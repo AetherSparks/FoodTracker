@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "@/context/SessionContext";
 import { useAuth } from "@/context/AuthContext";
-import { updateSessionNotes, getTodayDateString } from "@/lib/firestore";
+import { updateSessionNotes } from "@/lib/firestore";
 
 export function SessionNotes() {
   const { session } = useSession();
@@ -20,7 +20,8 @@ export function SessionNotes() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       if (!user?.uid) return;
-      updateSessionNotes(user.uid, getTodayDateString(), value);
+      if (!session?.date) return;
+      updateSessionNotes(user.uid, session.date, value);
     }, 600);
   };
 

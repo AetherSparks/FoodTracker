@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "@/context/SessionContext";
 import { useAuth } from "@/context/AuthContext";
 import { useFoodItems } from "@/hooks/useFoodItems";
@@ -9,13 +10,32 @@ import { CategoryFilter, type Filter } from "@/components/CategoryFilter";
 import { SearchBar } from "@/components/SearchBar";
 import { FoodCatalog } from "@/components/FoodCatalog";
 import { SessionNotes } from "@/components/SessionNotes";
-import { SessionStarter } from "@/components/SessionStarter";
-import type { FoodItem, CategoryGroup as CategoryGroupType } from "@/lib/types";
+import type {
+  FoodItem,
+  CategoryGroup as CategoryGroupType,
+} from "@/lib/types";
 
-export default function TrackPage() {
-  const { hasSession, loading: sessionLoading, session, error, items: sessionItems } = useSession();
+function TrackPageContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const date = searchParams.get("date");
+  const {
+    session,
+    loading: sessionLoading,
+    error,
+    items: sessionItems,
+    loadSession,
+  } = useSession();
   const { user, signOut } = useAuth();
   const { items: foodItems, loading: catalogLoading } = useFoodItems();
+
+  useEffect(() => {
+    if (!date) {
+      router.replace("/sessions");
+      return;
+    }
+    loadSession(date);
+  }, [date, loadSession, router]);
 
   const [filter, setFilter] = useState<Filter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -105,6 +125,12 @@ export default function TrackPage() {
               </div>
             )}
             <button
+              onClick={() => router.push("/sessions")}
+              className="rounded-lg border border-gray-800 bg-gray-900 px-2.5 py-1.5 text-xs font-medium text-gray-400 transition-colors active:bg-gray-800 active:text-gray-200"
+            >
+              Back
+            </button>
+            <button
               onClick={signOut}
               className="rounded-lg border border-gray-800 bg-gray-900 px-2.5 py-1.5 text-xs font-medium text-gray-400 transition-colors active:bg-gray-800 active:text-gray-200"
             >
@@ -127,29 +153,37 @@ export default function TrackPage() {
           </div>
         )}
 
-        {!hasSession ? (
-          <div className="flex h-full items-center justify-center">
-            <SessionStarter />
+        <div className="space-y-4 py-4">
+          <SessionSummary stats={stats} topCategories={topCategories} />
+
+          <div className="space-y-3">
+            <CategoryFilter
+              active={filter}
+              onChange={setFilter}
+              categories={allCategories}
+            />
+            <SearchBar value={searchQuery} onChange={setSearchQuery} />
           </div>
-        ) : (
-          <div className="space-y-4 py-4">
-            <SessionSummary stats={stats} topCategories={topCategories} />
 
-            <div className="space-y-3">
-              <CategoryFilter
-                active={filter}
-                onChange={setFilter}
-                categories={allCategories}
-              />
-              <SearchBar value={searchQuery} onChange={setSearchQuery} />
-            </div>
+          <FoodCatalog groups={filteredGroups} />
 
-            <FoodCatalog groups={filteredGroups} />
-
-            <SessionNotes />
-          </div>
-        )}
+          <SessionNotes />
+        </div>
       </main>
     </div>
+  );
+}
+
+export default function TrackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center bg-gray-950">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
+        </div>
+      }
+    >
+      <TrackPageContent />
+    </Suspense>
   );
 }

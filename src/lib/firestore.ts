@@ -44,7 +44,7 @@ export async function fetchFoodItems(): Promise<FoodItem[]> {
   );
 }
 
-export async function getTodaySession(
+export async function getSession(
   uid: string,
   date: string
 ): Promise<FoodSession | null> {
@@ -55,6 +55,25 @@ export async function getTodaySession(
   const data = snap.data() as FoodSession;
   if (!data.items) data.items = {};
   return data;
+}
+
+export async function listSessions(uid: string): Promise<FoodSession[]> {
+  if (!db) return [];
+  const ref = collection(
+    db!,
+    "companies",
+    COMPANY_ID,
+    "users",
+    uid,
+    "sessions"
+  );
+  const q = query(ref, orderBy("date", "desc"));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() as FoodSession;
+    if (!data.items) data.items = {};
+    return data;
+  });
 }
 
 export async function createSession(

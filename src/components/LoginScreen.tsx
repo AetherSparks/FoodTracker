@@ -9,7 +9,7 @@ export function LoginScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && user) router.replace("/track");
+    if (!loading && user) router.replace("/sessions");
   }, [user, loading, router]);
 
   if (loading) {
