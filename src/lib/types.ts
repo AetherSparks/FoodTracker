@@ -37,4 +37,5 @@ export interface LeaderboardEntry {
   bestScore: number;
   bestDate: string;
   bestItems: Record<string, SessionItem>;
+  scores: Record<string, number>;
 }

@@ -34,6 +34,16 @@ interface SessionContextValue {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
+function computeTotalPieces(
+  items: Record<string, SessionItem>
+): number {
+  let total = 0;
+  for (const si of Object.values(items)) {
+    total += si.units * si.piecesPerUnit;
+  }
+  return total;
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [session, setSession] = useState<FoodSession | null>(null);
@@ -48,7 +58,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   itemsRef.current = items;
   const userRef = useRef(user);
   userRef.current = user;
-  const bestScoreRef = useRef(0);
+  const scoresRef = useRef<Record<string, number>>({});
 
   const uid = user?.uid ?? null;
 
@@ -57,27 +67,48 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       const currentItems = itemsRef.current;
+      const currentUser = userRef.current;
+      if (!currentUser) return;
+
       await updateSessionItems(uid, activeCompany, activeDate, currentItems);
 
-      let totalPieces = 0;
-      for (const si of Object.values(currentItems)) {
-        totalPieces += si.units * si.piecesPerUnit;
-      }
-      if (totalPieces > bestScoreRef.current) {
-        bestScoreRef.current = totalPieces;
-        const currentUser = userRef.current;
-        if (currentUser) {
-          await updateLeaderboard(activeCompany, uid, {
-            displayName:
-              currentUser.displayName ??
-              currentUser.email?.split("@")[0] ??
-              "Unknown",
-            photoURL: currentUser.photoURL ?? "",
-            bestScore: totalPieces,
-            bestDate: activeDate,
-            bestItems: currentItems,
-          });
+      const currentScore = computeTotalPieces(currentItems);
+      scoresRef.current[activeDate] = currentScore;
+
+      let maxScore = -1;
+      let maxDate = activeDate;
+      for (const [d, s] of Object.entries(scoresRef.current)) {
+        if (s > maxScore) {
+          maxScore = s;
+          maxDate = d;
         }
+      }
+
+      if (maxDate === activeDate) {
+        await updateLeaderboard(activeCompany, uid, {
+          displayName:
+            currentUser.displayName ??
+            currentUser.email?.split("@")[0] ??
+            "Unknown",
+          photoURL: currentUser.photoURL ?? "",
+          bestScore: maxScore,
+          bestDate: maxDate,
+          bestItems: currentItems,
+          scores: scoresRef.current,
+        });
+      } else {
+        const bestSession = await getSession(uid, activeCompany, maxDate);
+        await updateLeaderboard(activeCompany, uid, {
+          displayName:
+            currentUser.displayName ??
+            currentUser.email?.split("@")[0] ??
+            "Unknown",
+          photoURL: currentUser.photoURL ?? "",
+          bestScore: maxScore,
+          bestDate: maxDate,
+          bestItems: bestSession?.items ?? {},
+          scores: scoresRef.current,
+        });
       }
     }, 400);
   }, [uid, activeDate, activeCompany]);
@@ -95,7 +126,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           setItems(s.items ?? {});
           setActiveDate(date);
           const lb = await getLeaderboardEntry(companyId, uid);
-          bestScoreRef.current = lb?.bestScore ?? 0;
+          scoresRef.current = lb?.scores ?? {};
         } else {
           setSession(null);
           setItems({});
@@ -125,7 +156,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setItems({});
       setActiveDate(date);
       setActiveCompany(companyId);
-      bestScoreRef.current = 0;
     },
     [uid]
   );

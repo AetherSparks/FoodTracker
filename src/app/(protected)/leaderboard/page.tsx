@@ -15,6 +15,7 @@ function resolveItems(
   return Object.entries(bestItems).map(([id, si]) => {
     const food = foodMap.get(id);
     return {
+      id,
       name: food?.name ?? id,
       unitType: food?.unitType ?? "piece",
       units: si.units,
@@ -113,17 +114,9 @@ function LeaderboardContent() {
                     >
                       {rankLabels[i]}
                     </div>
-                    {entry.photoURL ? (
-                      <img
-                        src={entry.photoURL}
-                        alt={entry.displayName}
-                        className="h-10 w-10 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-800 text-sm font-bold text-gray-400">
-                        {entry.displayName[0]?.toUpperCase() ?? "?"}
-                      </div>
-                    )}
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-800 text-sm font-bold text-gray-400">
+                      {entry.displayName[0]?.toUpperCase() ?? "?"}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-white truncate">
                         {entry.displayName}
@@ -146,7 +139,7 @@ function LeaderboardContent() {
                       <div className="space-y-1.5">
                         {dishes.map((d, j) => (
                           <div
-                            key={j}
+                            key={d.id}
                             className="flex items-center justify-between text-sm"
                           >
                             <span className="text-gray-300">{d.name}</span>

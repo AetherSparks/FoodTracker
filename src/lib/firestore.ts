@@ -144,6 +144,7 @@ export async function updateLeaderboard(
     bestScore: number;
     bestDate: string;
     bestItems: Record<string, SessionItem>;
+    scores: Record<string, number>;
   }
 ): Promise<void> {
   if (!db) return;
@@ -161,7 +162,7 @@ export function listenLeaderboard(
     orderBy("bestScore", "desc"),
     limit(3)
   );
-  const unsub = onSnapshot(q, (snap) => {
+    const unsub = onSnapshot(q, (snap) => {
     const entries = snap.docs.map((d) => {
       const data = d.data();
       return {
@@ -172,6 +173,7 @@ export function listenLeaderboard(
         bestScore: data.bestScore,
         bestDate: data.bestDate,
         bestItems: data.bestItems ?? {},
+        scores: data.scores ?? {},
       } as LeaderboardEntry;
     });
     callback(entries);
@@ -196,5 +198,6 @@ export async function getLeaderboardEntry(
     bestScore: data.bestScore,
     bestDate: data.bestDate,
     bestItems: data.bestItems ?? {},
+    scores: data.scores ?? {},
   } as LeaderboardEntry;
 }
