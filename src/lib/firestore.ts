@@ -7,24 +7,28 @@ import {
   setDoc,
   query,
   orderBy,
+  limit,
+  onSnapshot,
 } from "firebase/firestore";
-import { COMPANY_ID } from "./constants";
-import type { FoodItem, FoodSession, SessionItem } from "./types";
+import { DEFAULT_COMPANY_ID } from "./constants";
+import type {
+  FoodItem,
+  FoodSession,
+  SessionItem,
+  Restaurant,
+  LeaderboardEntry,
+} from "./types";
 
-function foodItemsRef() {
-  return collection(db!, "companies", COMPANY_ID, "food_items");
+function foodItemsRef(companyId: string) {
+  return collection(db!, "companies", companyId, "food_items");
 }
 
-function sessionRef(uid: string, date: string) {
-  return doc(
-    db!,
-    "companies",
-    COMPANY_ID,
-    "users",
-    uid,
-    "sessions",
-    date
-  );
+function sessionRef(uid: string, companyId: string, date: string) {
+  return doc(db!, "companies", companyId, "users", uid, "sessions", date);
+}
+
+function leaderboardDocRef(companyId: string, uid: string) {
+  return doc(db!, "companies", companyId, "leaderboard", uid);
 }
 
 export function getTodayDateString(): string {
@@ -35,9 +39,28 @@ export function getTodayDateString(): string {
   return `${year}-${month}-${day}`;
 }
 
-export async function fetchFoodItems(): Promise<FoodItem[]> {
+export async function listRestaurants(): Promise<Restaurant[]> {
   if (!db) return [];
-  const q = query(foodItemsRef(), orderBy("category", "asc"));
+  const snap = await getDocs(collection(db!, "restaurants"));
+  return snap.docs.map(
+    (d) => ({ id: d.id, ...d.data() }) as Restaurant
+  );
+}
+
+export async function seedDefaultRestaurant(): Promise<void> {
+  if (!db) return;
+  const ref = doc(db!, "restaurants", DEFAULT_COMPANY_ID);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    await setDoc(ref, { name: "Absolute Barbecue" });
+  }
+}
+
+export async function fetchFoodItems(
+  companyId: string
+): Promise<FoodItem[]> {
+  if (!db) return [];
+  const q = query(foodItemsRef(companyId), orderBy("category", "asc"));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(
     (doc) => ({ id: doc.id, ...doc.data() }) as FoodItem
@@ -46,10 +69,11 @@ export async function fetchFoodItems(): Promise<FoodItem[]> {
 
 export async function getSession(
   uid: string,
+  companyId: string,
   date: string
 ): Promise<FoodSession | null> {
   if (!db) return null;
-  const ref = sessionRef(uid, date);
+  const ref = sessionRef(uid, companyId, date);
   const snap = await getDoc(ref);
   if (!snap.exists()) return null;
   const data = snap.data() as FoodSession;
@@ -57,12 +81,15 @@ export async function getSession(
   return data;
 }
 
-export async function listSessions(uid: string): Promise<FoodSession[]> {
+export async function listSessions(
+  uid: string,
+  companyId: string
+): Promise<FoodSession[]> {
   if (!db) return [];
   const ref = collection(
     db!,
     "companies",
-    COMPANY_ID,
+    companyId,
     "users",
     uid,
     "sessions"
@@ -78,29 +105,96 @@ export async function listSessions(uid: string): Promise<FoodSession[]> {
 
 export async function createSession(
   uid: string,
+  companyId: string,
   date: string
 ): Promise<void> {
   if (!db) return;
-  const ref = sessionRef(uid, date);
-  await setDoc(ref, { date, items: {} });
+  const ref = sessionRef(uid, companyId, date);
+  await setDoc(ref, { date, items: {}, companyId });
 }
 
 export async function updateSessionItems(
   uid: string,
+  companyId: string,
   date: string,
   items: Record<string, SessionItem>
 ): Promise<void> {
   if (!db) return;
-  const ref = sessionRef(uid, date);
+  const ref = sessionRef(uid, companyId, date);
   await setDoc(ref, { items }, { merge: true });
 }
 
 export async function updateSessionNotes(
   uid: string,
+  companyId: string,
   date: string,
   notes: string
 ): Promise<void> {
   if (!db) return;
-  const ref = sessionRef(uid, date);
+  const ref = sessionRef(uid, companyId, date);
   await setDoc(ref, { notes }, { merge: true });
+}
+
+export async function updateLeaderboard(
+  companyId: string,
+  uid: string,
+  data: {
+    displayName: string;
+    photoURL: string;
+    bestScore: number;
+    bestDate: string;
+    bestItems: Record<string, SessionItem>;
+  }
+): Promise<void> {
+  if (!db) return;
+  const ref = leaderboardDocRef(companyId, uid);
+  await setDoc(ref, data);
+}
+
+export function listenLeaderboard(
+  companyId: string,
+  callback: (entries: LeaderboardEntry[]) => void
+): () => void {
+  if (!db) return () => {};
+  const q = query(
+    collection(db!, "companies", companyId, "leaderboard"),
+    orderBy("bestScore", "desc"),
+    limit(3)
+  );
+  const unsub = onSnapshot(q, (snap) => {
+    const entries = snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        uid: data.uid,
+        displayName: data.displayName,
+        photoURL: data.photoURL,
+        bestScore: data.bestScore,
+        bestDate: data.bestDate,
+        bestItems: data.bestItems ?? {},
+      } as LeaderboardEntry;
+    });
+    callback(entries);
+  });
+  return unsub;
+}
+
+export async function getLeaderboardEntry(
+  companyId: string,
+  uid: string
+): Promise<LeaderboardEntry | null> {
+  if (!db) return null;
+  const ref = leaderboardDocRef(companyId, uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  const data = snap.data();
+  return {
+    id: snap.id,
+    uid: data.uid,
+    displayName: data.displayName,
+    photoURL: data.photoURL,
+    bestScore: data.bestScore,
+    bestDate: data.bestDate,
+    bestItems: data.bestItems ?? {},
+  } as LeaderboardEntry;
 }

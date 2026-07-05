@@ -23,3 +23,18 @@ export interface CategoryGroup {
   category: string;
   items: FoodItem[];
 }
+
+export interface Restaurant {
+  id: string;
+  name: string;
+}
+
+export interface LeaderboardEntry {
+  id: string;
+  uid: string;
+  displayName: string;
+  photoURL: string;
+  bestScore: number;
+  bestDate: string;
+  bestItems: Record<string, SessionItem>;
+}

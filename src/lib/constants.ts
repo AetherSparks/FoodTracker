@@ -1,4 +1,4 @@
-export const COMPANY_ID = "absolute-barbecue";
+export const DEFAULT_COMPANY_ID = "absolute-barbecue";
 
 export const CATEGORY_ORDER = [
   "Chaat",

@@ -6,7 +6,6 @@ import {
   deleteDoc,
   updateDoc,
 } from "firebase/firestore";
-import { COMPANY_ID } from "./constants";
 import type { UnitType } from "./types";
 
 interface SeedItem {
@@ -46,9 +45,9 @@ const SEED_ITEMS: SeedItem[] = [
   { name: "Custard", category: "Desserts", defaultPiecesPerUnit: 1, unitType: "scoop" },
 ];
 
-export async function seedFoodItems(): Promise<void> {
+export async function seedFoodItems(companyId: string): Promise<void> {
   if (!db) return;
-  const ref = collection(db, "companies", COMPANY_ID, "food_items");
+  const ref = collection(db, "companies", companyId, "food_items");
   const snap = await getDocs(ref);
 
   if (snap.empty) {
@@ -57,7 +56,6 @@ export async function seedFoodItems(): Promise<void> {
     return;
   }
 
-  // Deduplicate + upgrade existing items with new fields
   const seedNames = new Map<string, SeedItem>();
   SEED_ITEMS.forEach((item) => seedNames.set(item.name.toLowerCase(), item));
 
@@ -86,7 +84,6 @@ export async function seedFoodItems(): Promise<void> {
 
   await Promise.all(batch);
 
-  // Create any seed items that don't exist yet
   const existingNames = new Set<string>();
   snap.forEach((docSnap) => {
     const data = docSnap.data();

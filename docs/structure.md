@@ -2,7 +2,7 @@
 
 ## Overview
 
-Multi-outlet buffet food tracker. Mobile-first (max-width: 480px), dark-themed, built for single-handed use. Tracks units (sticks/portions/scoops) × pieces-per-unit per food item per daily session.
+Multi-outlet buffet food tracker. Mobile-first (max-width: 480px), dark-themed, built for single-handed use. Tracks units (sticks/portions/scoops) × pieces-per-unit per food item per daily session. Supports multiple restaurants/companies, each with its own menu and leaderboard.
 
 ## Tech Stack
 
@@ -15,6 +15,9 @@ Multi-outlet buffet food tracker. Mobile-first (max-width: 480px), dark-themed, 
 ## Firestore Schema
 
 ```
+/restaurants/{companyId}
+  └── name: string                   // display name, e.g. "Absolute Barbecue"
+
 /companies/{companyId}/food_items/{docId}
   ├── name: string
   ├── category: string               // "Chicken" | "Seafood" | "Veg Grill" | ...
@@ -23,6 +26,7 @@ Multi-outlet buffet food tracker. Mobile-first (max-width: 480px), dark-themed, 
 
 /companies/{companyId}/users/{uid}/sessions/{dateYMD}
   ├── date: string                   // "2026-07-05"
+  ├── companyId: string
   ├── notes?: string                 // user's personal notes for the session
   └── items: {
         [itemId]: {
@@ -30,9 +34,17 @@ Multi-outlet buffet food tracker. Mobile-first (max-width: 480px), dark-themed, 
           piecesPerUnit: number      // pieces per serving (snapshot on first touch)
         }
       }
-```
 
-**Company context:** Hardcoded to `"absolute-barbecue"` in `src/lib/constants.ts`. All Firestore paths use `COMPANY_ID`.
+/companies/{companyId}/leaderboard/{uid}
+  ├── uid: string
+  ├── displayName: string
+  ├── photoURL: string
+  ├── bestScore: number              // total pieces of the user's best session
+  ├── bestDate: string               // date of best session
+  └── bestItems: {                   // snapshot of best session's items
+        [itemId]: { units, piecesPerUnit }
+      }
+```
 
 **User key:** Firebase Auth UID (not email). Security rules match `request.auth.uid`.
 
@@ -43,17 +55,21 @@ src/
 ├── app/
 │   ├── globals.css                      # Tailwind directives, scrollbar, tap highlight
 │   ├── layout.tsx                       # Root: AuthProvider, max-w-[480px] wrapper
-│   ├── page.tsx                         # Auto-redirect to /sessions or /login
+│   ├── page.tsx                         # Auto-redirect to /companies or /login
 │   ├── login/page.tsx                   # Server shell → LoginScreen
 │   └── (protected)/
 │       ├── layout.tsx                   # Auth guard (shared across all protected routes)
+│       ├── companies/
+│       │   └── page.tsx                 # Restaurant selector (lists /restaurants)
 │       ├── track/
 │       │   ├── layout.tsx               # SessionProvider
-│       │   └── page.tsx                 # Tracker (reads ?date= from URL)
-│       └── sessions/
-│           └── page.tsx                 # Session list + Start Today
+│       │   └── page.tsx                 # Tracker (reads ?company= & ?date= from URL)
+│       ├── sessions/
+│       │   └── page.tsx                 # Per-company session list + Start Today
+│       └── leaderboard/
+│           └── page.tsx                 # Top 3 users, live onSnapshot, expandable cards
 ├── components/
-│   ├── LoginScreen.tsx                  # Google OAuth button, redirect to /sessions
+│   ├── LoginScreen.tsx                  # Google OAuth button, redirect to /companies
 │   ├── SessionSummary.tsx               # Stats card: total units/pieces, top 3 categories
 │   ├── CategoryFilter.tsx               # Dynamic pill tabs from catalog categories
 │   ├── SearchBar.tsx                    # Search with clear button
@@ -64,87 +80,76 @@ src/
 │   └── Counter.tsx                      # − / units / + , inline PPU edit, unitType label
 ├── context/
 │   ├── AuthContext.tsx                  # onAuthStateChanged, signInWithPopup, signOut
-│   └── SessionContext.tsx               # Session loading by date, optimistic counts, debounced sync (400ms)
+│   └── SessionContext.tsx               # Load by (companyId, date), leaderboard update, debounced sync
 ├── hooks/
-│   └── useFoodItems.ts                  # Fetch + seed catalog
+│   └── useFoodItems.ts                  # Per-company fetch + seed catalog
 └── lib/
-    ├── constants.ts                     # COMPANY_ID, CATEGORY_ORDER (custom section order)
+    ├── constants.ts                     # DEFAULT_COMPANY_ID, CATEGORY_ORDER
     ├── firebase.ts                      # Firebase init (long-polling enabled for Chrome)
-    ├── firestore.ts                     # All Firestore CRUD helpers
-    ├── seed.ts                          # Seeds 20 menu items, deduplicates, upgrades old fields
-    └── types.ts                         # FoodItem, SessionItem, FoodSession, UnitType, CategoryGroup
+    ├── firestore.ts                     # All Firestore CRUD helpers (company-aware)
+    ├── seed.ts                          # Seeds 27 menu items, deduplicates, upgrades old fields
+    └── types.ts                         # FoodItem, SessionItem, FoodSession, Restaurant, LeaderboardEntry, etc.
 ```
 
 ## Component Tree (Runtime)
 
-### Auth Flow
+### Navigation Flow
 ```
 <RootLayout>
   <AuthProvider>
     <div max-w-[480px]>
       <ProtectedLayout>                ← auth guard: redirects to /login if unauthenticated
-        ├── /sessions → <SessionsPage> ← lists all sessions, "Start Today" button
-        └── /track?date= → <TrackLayout>
-                             <SessionProvider>
-                               <TrackPage>  ← reads ?date= from URL, calls loadSession(date)
-                                 <Header>
-                                 <SessionSummary />
-                                 <CategoryFilter />
-                                 <SearchBar />
-                                 <FoodCatalog groups />
-                                   <CategoryGroup>
-                                     <FoodItemCard>
-                                       <Counter />
-                                 <SessionNotes />
+
+        /companies → <CompaniesPage>  ← lists /restaurants, kind="Absolute Barbecue"
+                      Click → /sessions?company=X
+
+        /sessions?company=X → <SessionsPage>  ← per-company session list
+          ├── "Leaderboard" button → /leaderboard?company=X
+          ├── "Switch" button → /companies
+          └── Click session → /track?company=X&date=Y
+
+        /track?company=X&date=Y → <TrackLayout>
+                                    <SessionProvider>
+                                      <TrackPage>  ← calls loadSession(companyId, date)
+                                        <Header>
+                                          "Back" → /sessions?company=X
+                                        <SessionSummary />
+                                        <CategoryFilter />
+                                        <SearchBar />
+                                        <FoodCatalog groups />
+                                        <SessionNotes />
+
+        /leaderboard?company=X → <LeaderboardPage>  ← onSnapshot live top 3
+                                   Click card → expand dishes from best session
 ```
 
-### Session Selection Flow
+### Data Flow
 ```
-1. User logs in → redirects to /sessions
-2. SessionsPage fetches ALL session docs (ordered by date desc)
-3a. If today's session exists → shows "Today's Session" card with Continue button
-3b. If not → shows "Start New Session" button (creates session doc + navigates)
-4. Past sessions shown as list with date, item count, units, pieces
-5. Click any session → navigates to /track?date=YYYY-MM-DD
-```
+1. AUTH → AuthContext → user, signInWithPopup, signOut
 
-## Data Flow
+2. COMPANY → CompaniesPage → listRestaurants() → user picks → /sessions?company=X
 
-```
-1. AUTH → AuthContext reads onAuthStateChanged → provides user, signInWithPopup, signOut
+3. SESSION LIST → SessionsPage → listSessions(uid, companyId)
+   - Today session card or "Start New Session" button
+   - Past sessions list with stats
 
-2. SESSION LIST → SessionsPage fetches /companies/{COMPANY_ID}/users/{uid}/sessions (all docs)
-   - Shows today's session (if exists) or Start Today button
-   - Lists past sessions with item/unit/piece counts
-   - Tapping a session navigates to /track?date={date}
+4. SESSION LOAD → TrackPage → loadSession(companyId, date) on SessionContext
+   - Fetches session doc, populates items + notes
+   - Fetches leaderboard entry → bestScoreRef for comparison
 
-3. SESSION LOAD → TrackPage reads ?date= from URL → calls loadSession(date) on SessionContext
-   - If session doc exists → populate items map + notes
-   - If no session → show error
+5. CATALOG → useFoodItems(companyId) → seedFoodItems(companyId) → fetchFoodItems(companyId)
+   - Returns { items, loading } scoped to the company
 
-4. CATALOG → useFoodItems hook:
-   - On mount: seedFoodItems() (deduplicates + upgrades existing docs) then fetchFoodItems()
-   - Returns { items, loading }
-   - Catalog is read-only from the UI (no user additions)
+6. FILTERING / STATS / COUNTERS → unchanged from previous
 
-5. FILTERING → TrackPage computes filteredGroups:
-   - active filter → category match
-   - searchQuery → name includes (case-insensitive)
-   - Groups by category → renders FoodCatalog
+7. LEADERBOARD UPDATE → in SessionContext.triggerSync:
+   - Compute total pieces of current session
+   - If > bestScoreRef → updateLeaderboard(companyId, uid, { displayName, photoURL, bestScore, bestDate, bestItems })
 
-6. STATS → TrackPage computes:
-   - totalUnits, totalPieces (across all items)
-   - topCategories: top 3 by unit count
-
-7. COUNTER → optimistic local state, debounced Firestore write (400ms):
-   - increment(itemId, defaultPPU): creates or increments units
-   - decrement(itemId): decrements units (min 0)
-   - setPiecesPerUnit(itemId, value): updates piecesPerUnit (min 1)
-   - triggerSync: clearTimeout → setTimeout → updateSessionItems
-
-8. NOTES → SessionNotes component, debounced Firestore write (600ms):
-   - Notes are written to session.notes field on the session document
-   - Uses session.date to write to the correct session
+8. LEADERBOARD PAGE → listenLeaderboard(companyId) via onSnapshot
+   - Order by bestScore desc, limit 3
+   - Resolve itemIds → names via useFoodItems catalog
+   - Click to expand card → show dishes with units + pieces
 ```
 
 ## Key Design Decisions
@@ -152,23 +157,19 @@ src/
 | Decision | Choice | Rationale |
 |---|---|---|
 | Auth method | `signInWithPopup` | Avoids CSP issues from Next.js dev overlay; no COOP header needed |
-| Firestore init | `experimentalForceLongPolling: true` | Avoids WebSocket transport issues in Chrome |
-| User doc key | Firebase UID | Cleaner than email, easy to match in security rules |
-| Session items shape | `{ units, piecesPerUnit }` | Separates serving count from piece multiplier |
-| PPU snapshot | Captured on first touch | Changing catalog default doesn't retroactively affect existing sessions |
-| Sync strategy | Debounced full-write (400ms) | Optimistic UI; last write wins; simple, no conflict logic needed |
-| Session navigation | `?date=` query param | Clean URL-based routing; sessions page controls the flow |
-| Catalog fetch | useFoodItems hook | Single source of truth; catalog is admin-curated only |
-| Unit type | `unitType` field on FoodItem | Describes serving method: stick, scoop, bowl, plate, etc. |
-| Categories | Dynamic strings (not enum) | Flexible for new menu sections without code changes |
-| Category filter | Dynamic pills from catalog | Always stays in sync with actual data |
-| Category order | `CATEGORY_ORDER` constant | Custom display order: Chaat → Veg Starters → Veg Grill → Chicken → Seafood → Desserts |
-| User additions | Replaced by session notes | Prevents catalog pollution; notes are personal |
-| Notes persistence | Debounced to session doc | Same session document, merged silently |
-| Duplicate cleanup | Seed function deduplicates by name | Keeps Firestore clean when schema evolves |
-| State management | In TrackPage (filter, search) | Lifted from children → clean, testable, no deep prop drilling |
+| Company scope | Dynamic `companyId` via URL param | Supports future multi-restaurant expansion; no hardcoded ID |
+| Restaurant registry | `/restaurants/{id}` collection | Simple discovery; seeded with "Absolute Barbecue" on first visit |
+| Leaderboard storage | Per-company `/leaderboard/{uid}` docs | Efficient query (orderBy + limit 3) with real-time onSnapshot |
+| Leaderboard update | Triggered in session sync debounce | No extra infrastructure; updates only when current session beats best |
+| Leaderboard score | Total pieces (units × piecesPerUnit) | More precise than raw unit count |
+| Leaderboard dishes | Snapshot in leaderboard doc | Resolved to names via catalog on the leaderboard page |
+| Session navigation | `?company=X&date=Y` query params | Clean URL-based routing; each component reads its own params |
+| Catalog fetch | useFoodItems(companyId) hook | Per-company seeding + fetching in one hook |
+| User display name | Firebase Auth displayName/email fallback | Used in leaderboard; no separate profile needed |
 
 ## Seed Data (27 Items)
+
+See `docs/dishes.md` for full menu reference with Firestore document IDs.
 
 | Item | Category | unitType | defaultPPU |
 |---|---|---|---|
@@ -206,12 +207,21 @@ src/
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    match /restaurants/{restaurant} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
     match /companies/{company}/food_items/{item} {
       allow read: if request.auth != null;
-      allow write: if false;                    // admin only via Firebase Console
+      allow write: if false;
     }
     match /companies/{company}/users/{uid}/sessions/{date} {
       allow read, write: if request.auth != null
+        && request.auth.uid == uid;
+    }
+    match /companies/{company}/leaderboard/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
         && request.auth.uid == uid;
     }
   }
@@ -231,11 +241,11 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 
 ## Future Expansion Points
 
-- **Multi-company:** `COMPANY_ID` is already parameterized; add a company selector or onboarding flow
 - **End session / locking:** Add a "finalize" button that sets a flag
 - **Analytics:** Aggregate across sessions for trend charts
-- **Offline:** Firestore offline persistence is enabled by default; UI could show "syncing" indicator
+- **Offline:** Firestore offline persistence; UI could show "syncing" indicator
 - **Admin catalog editor:** Simple page to manage food_items (add/edit/delete items)
+- **Calories:** Add calorie field to dishes, score leaderboard by calories instead of pieces
 
 ---
 

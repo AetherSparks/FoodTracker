@@ -5,12 +5,12 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "@/context/SessionContext";
 import { useAuth } from "@/context/AuthContext";
 import { useFoodItems } from "@/hooks/useFoodItems";
-import { CATEGORY_ORDER } from "@/lib/constants";
 import { SessionSummary } from "@/components/SessionSummary";
 import { CategoryFilter, type Filter } from "@/components/CategoryFilter";
 import { SearchBar } from "@/components/SearchBar";
 import { FoodCatalog } from "@/components/FoodCatalog";
 import { SessionNotes } from "@/components/SessionNotes";
+import { CATEGORY_ORDER } from "@/lib/constants";
 import type {
   FoodItem,
   CategoryGroup as CategoryGroupType,
@@ -19,6 +19,7 @@ import type {
 function TrackPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const companyId = searchParams.get("company");
   const date = searchParams.get("date");
   const {
     session,
@@ -28,15 +29,20 @@ function TrackPageContent() {
     loadSession,
   } = useSession();
   const { user, signOut } = useAuth();
-  const { items: foodItems, loading: catalogLoading } = useFoodItems();
+  const { items: foodItems, loading: catalogLoading } =
+    useFoodItems(companyId ?? "");
 
   useEffect(() => {
-    if (!date) {
-      router.replace("/sessions");
+    if (!companyId) {
+      router.replace("/companies");
       return;
     }
-    loadSession(date);
-  }, [date, loadSession, router]);
+    if (!date) {
+      router.replace(`/sessions?company=${companyId}`);
+      return;
+    }
+    loadSession(companyId, date);
+  }, [companyId, date, loadSession, router]);
 
   const [filter, setFilter] = useState<Filter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -131,7 +137,9 @@ function TrackPageContent() {
               </div>
             )}
             <button
-              onClick={() => router.push("/sessions")}
+              onClick={() =>
+                router.push(`/sessions?company=${companyId}`)
+              }
               className="rounded-lg border border-gray-800 bg-gray-900 px-2.5 py-1.5 text-xs font-medium text-gray-400 transition-colors active:bg-gray-800 active:text-gray-200"
             >
               Back

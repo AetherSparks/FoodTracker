@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { updateSessionNotes } from "@/lib/firestore";
 
 export function SessionNotes() {
-  const { session } = useSession();
+  const { session, activeCompany } = useSession();
   const { user } = useAuth();
   const [notes, setNotes] = useState(session?.notes ?? "");
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -19,9 +19,8 @@ export function SessionNotes() {
     setNotes(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      if (!user?.uid) return;
-      if (!session?.date) return;
-      updateSessionNotes(user.uid, session.date, value);
+      if (!user?.uid || !session?.date || !activeCompany) return;
+      updateSessionNotes(user.uid, activeCompany, session.date, value);
     }, 600);
   };
 

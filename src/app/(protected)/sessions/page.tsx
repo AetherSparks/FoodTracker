@@ -1,8 +1,8 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
 import {
   listSessions,
   createSession,
@@ -24,33 +24,43 @@ function computeStats(session: FoodSession) {
   };
 }
 
-export default function SessionsPage() {
+function SessionsContent() {
   const { user, signOut } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const companyId = searchParams.get("company");
+
   const [sessions, setSessions] = useState<FoodSession[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (!companyId) {
+      router.replace("/companies");
+      return;
+    }
+  }, [companyId, router]);
+
+  useEffect(() => {
+    if (!user || !companyId) return;
     setLoading(true);
-    listSessions(user.uid)
+    listSessions(user.uid, companyId)
       .then(setSessions)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [user]);
+  }, [user, companyId]);
 
   const openSession = (date: string) => {
-    router.push(`/track?date=${date}`);
+    router.push(`/track?company=${companyId}&date=${date}`);
   };
 
   const startToday = async () => {
-    if (!user) return;
+    if (!user || !companyId) return;
     const today = getTodayDateString();
     const exists = sessions.some((s) => s.date === today);
     if (!exists) {
-      await createSession(user.uid, today);
+      await createSession(user.uid, companyId, today);
     }
-    router.push(`/track?date=${today}`);
+    router.push(`/track?company=${companyId}&date=${today}`);
   };
 
   const today = getTodayDateString();
@@ -74,12 +84,26 @@ export default function SessionsPage() {
         <h1 className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-xl font-black uppercase tracking-tight text-transparent">
           Sessions
         </h1>
-        <button
-          onClick={signOut}
-          className="rounded-lg border border-gray-800 bg-gray-900 px-2.5 py-1.5 text-xs font-medium text-gray-400 transition-colors active:bg-gray-800 active:text-gray-200"
-        >
-          Exit
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push(`/leaderboard?company=${companyId}`)}
+            className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-400 transition-colors active:bg-amber-500/20"
+          >
+            Leaderboard
+          </button>
+          <button
+            onClick={() => router.push("/companies")}
+            className="rounded-lg border border-gray-800 bg-gray-900 px-2.5 py-1.5 text-xs font-medium text-gray-400 transition-colors active:bg-gray-800 active:text-gray-200"
+          >
+            Switch
+          </button>
+          <button
+            onClick={signOut}
+            className="rounded-lg border border-gray-800 bg-gray-900 px-2.5 py-1.5 text-xs font-medium text-gray-400 transition-colors active:bg-gray-800 active:text-gray-200"
+          >
+            Exit
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 overflow-y-auto px-4 pb-6">
@@ -156,5 +180,19 @@ export default function SessionsPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function SessionsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center bg-gray-950">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
+        </div>
+      }
+    >
+      <SessionsContent />
+    </Suspense>
   );
 }
